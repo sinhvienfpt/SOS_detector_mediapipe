@@ -3,6 +3,7 @@ import cv2
 import mediapipe as mp
 from datetime import datetime
 import time
+from notifications import NotificationManager
 
 class SOSdetector:
     def __init__(self):
@@ -12,16 +13,19 @@ class SOSdetector:
         self.current_stage = 0
         self.start_time = time.time()
         self.end_time = time.time()
-        
-    def _save_image(self, image):
-        """ Save image to folder detected """
-        if not os.path.exists("./detected"):
-            os.makedirs("./detected")
+        self.notification_manager = NotificationManager()
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"./detected/screenshot_{timestamp}.png"
-        cv2.imwrite(filename, image)
-        print(f"Image saved as {filename}")
+    def _save_image(self, image):
+            """ Save image to folder detected and return the file path """
+            if not os.path.exists("./detected"):
+                os.makedirs("./detected")
+
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"./detected/screenshot_{timestamp}.png"
+            cv2.imwrite(filename, image)
+            print(f"Image saved as {filename}")
+            return filename
+
 
     def _stage1(self, hand_landmarks):
         """Stage 1: All fingers (A to E) open""" 
@@ -88,7 +92,6 @@ class SOSdetector:
         PINKY_TIP = hand_landmarks[20]
         PINKY_PIP = hand_landmarks[18]
 
-
         return (
             INDEX_FINGER_TIP.y > INDEX_FINGER_PIP.y and
             MIDDLE_FINGER_TIP.y > MIDDLE_FINGER_PIP.y and
@@ -100,76 +103,63 @@ class SOSdetector:
         """Detect SOS hand signal"""
         if self.current_stage == 0 and self._stage1(hand_landmarks):
             self.current_stage = 1
-            # print("Stage 1")
-
+        
         if self.current_stage == 1 and self._stage2(hand_landmarks):
             self.current_stage = 2
             self.start_time = time.time()
-            # print("Stage 2")
-            # print("Start Time: ", self.start_time)
         
         if self.current_stage == 2 and self._stage3(hand_landmarks):
             self.current_stage = 3
-            # print("Stage 3")
                 
         if self.current_stage == 3 and self._stage2(hand_landmarks):
             self.current_stage = 4
             self.end_time = time.time()
-            # print("Stage 4")
-            # print("End Time: ", self.end_time)
 
-    
         if self.current_stage == 4:
             if self.end_time - self.start_time < 3:
                 return "SOS DETECTION"
             else:
                 self.current_stage = 0
 
-        # Reset stages if time exceeds 3 seconds to avoid false positives
         if time.time() - self.start_time > 3:
             self.current_stage = 0
             
         return "No SOS"
     
+
     def run_detection(self):
         """Run hand gesture detection"""
         cap = cv2.VideoCapture(0)
-        while cap.isOpened():
-            success, image = cap.read()
-            if not success:
-                break
+        try:
+            while cap.isOpened():
+                success, image = cap.read()
+                if not success:
+                    break
 
-            # Convert image to RGB
-            image = cv2.cvtColor(cv2.flip(image, 1), cv2.COLOR_BGR2RGB)
+                image = cv2.cvtColor(cv2.flip(image, 1), cv2.COLOR_BGR2RGB)
+                results = self.hands.process(image)
+                image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
-            # Hand detection process
-            results = self.hands.process(image)
+                if results.multi_hand_landmarks:
+                    for hand_landmarks in results.multi_hand_landmarks:
+                        self.mp_drawing.draw_landmarks(image, hand_landmarks, self.mp_hands.HAND_CONNECTIONS)
+                        signal = self.detect_hand_signal(hand_landmarks.landmark)
+                        cv2.putText(image, signal, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
 
-            # Revert image to BGR to display    
-            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+                        if signal == "SOS DETECTION":
+                            image_path = self._save_image(image)
+                            self.notification_manager.send_notifications("SOS Alert detected!", image_path)
+                            self.current_stage = 0  # Reset stages after capture
 
-            if results.multi_hand_landmarks:
-                for hand_landmarks in results.multi_hand_landmarks:
-                    self.mp_drawing.draw_landmarks(image, hand_landmarks, self.mp_hands.HAND_CONNECTIONS)
-                    signal = self.detect_hand_signal(hand_landmarks.landmark)
-                    cv2.putText(image, signal, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
+                cv2.imshow('Hand Signal Detection', image)
 
-                    if signal == "SOS DETECTION":
-                        self._save_image(image)
-                        self.current_stage = 0  # Reset stages after capture
+                if cv2.waitKey(5) & 0xFF == 27:  # Press Esc to stop
+                    break
+        finally:
+            cap.release()
+            self.notification_manager.cleanup()
+            cv2.destroyAllWindows()
 
-            # Show results
-            cv2.imshow('Hand Signal Detection', image)
-
-            if cv2.waitKey(5) & 0xFF == 27:
-                break
-
-        cap.release()
-        cv2.destroyAllWindows()
-        
-        
-        
 if __name__ == "__main__":
     detector = SOSdetector()
     detector.run_detection()
-    

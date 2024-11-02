@@ -1,0 +1,8 @@
+# .gitignore
+config.py
+key.txt
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+detected/
