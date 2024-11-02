@@ -141,15 +141,15 @@ class SOSdetector:
                 image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
                 if results.multi_hand_landmarks:
-                    for hand_landmarks in results.multi_hand_landmarks:
-                        self.mp_drawing.draw_landmarks(image, hand_landmarks, self.mp_hands.HAND_CONNECTIONS)
-                        signal = self.detect_hand_signal(hand_landmarks.landmark)
-                        cv2.putText(image, signal, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
+                    hand_landmarks = results.multi_hand_landmarks[0]
+                    self.mp_drawing.draw_landmarks(image, hand_landmarks, self.mp_hands.HAND_CONNECTIONS)
+                    signal = self.detect_hand_signal(hand_landmarks.landmark)
+                    cv2.putText(image, signal, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
 
-                        if signal == "SOS DETECTION":
-                            image_path = self._save_image(image)
-                            self.notification_manager.send_notifications("SOS Alert detected!", image_path)
-                            self.current_stage = 0  # Reset stages after capture
+                    if signal == "SOS DETECTION":
+                        image_path = self._save_image(image)
+                        self.notification_manager.send_notifications("SOS Alert detected!", image_path)
+                        self.current_stage = 0  # Reset stages after capture
 
                 cv2.imshow('Hand Signal Detection', image)
 
