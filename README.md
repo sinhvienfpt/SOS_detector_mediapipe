@@ -2,6 +2,16 @@
 
 This project implements a real-time hand gesture detection system that can recognize the SOS signal (distress signal) in a video stream. The system utilizes Mediapipe's hand tracking capabilities and leverages MQTT messaging and email notifications for alerting in case of emergency.
 
+<p align="center">
+  <img src="./demo/sos_detect.gif" width=600><br/>
+  <i>SOS hand gesture detect</i>
+</p>
+
+<p align="center">
+  <img src="./demo/notification.jpg" width=300><br/>
+  <i>Notifications will be sent to the given email</i>
+</p>
+
 ### Project Structure
 
 The project consists of two Python files:
